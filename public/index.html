@@ -5,34 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PrivProbe — Passive Inference Research Tool</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <header>
     <div class="header-left">
       <h1>PrivProbe</h1>
-      <span class="subtitle">Passive Attribute Inference from Multi-Turn LLM Conversations</span>
+      <span class="subtitle">Passive Attribute Inference · Dual-Model Experiment</span>
     </div>
     <div class="header-controls">
-      <button id="btn-persona" title="Load a fictional persona for demo">Load Persona</button>
-      <button id="btn-reset" title="Clear session and reset">Reset</button>
+      <div class="tab-bar">
+        <button class="tab active" data-tab="experiment">Experiment</button>
+        <button class="tab" data-tab="dashboard">Dashboard</button>
+      </div>
     </div>
   </header>
 
-  <main>
-    <!-- LEFT: Chat Panel -->
+  <!-- ═══ EXPERIMENT TAB ═══ -->
+  <main id="tab-experiment" class="tab-content active">
+    <!-- LEFT: Controls + Chat -->
     <section class="panel chat-panel">
+      <!-- Control bar -->
+      <div class="control-bar">
+        <div class="control-group">
+          <label>Model</label>
+          <select id="model-select">
+            <option value="gpt-4o-mini">GPT-4o-mini</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>Persona</label>
+          <select id="persona-select">
+            <option value="">— Manual Chat —</option>
+            <option value="arjun">Arjun · Pune · Diabetes · IT</option>
+            <option value="priya">Priya · Mumbai · Hypertension · Finance</option>
+            <option value="ravi">Ravi · Bangalore · Asthma · Dev</option>
+            <option value="sneha">Sneha · Hyderabad · PCOS · Marketing</option>
+            <option value="amit">Amit · Delhi · Cholesterol · Govt</option>
+          </select>
+        </div>
+        <button id="btn-run" title="Auto-run selected persona">&#9654; Run Persona</button>
+        <button id="btn-run-all" title="Run all personas on both models">&#9654;&#9654; Run All</button>
+        <button id="btn-reset">Reset</button>
+        <button id="btn-export">Export CSV</button>
+      </div>
+
+      <!-- Chat area -->
       <div class="panel-header">
         <span class="panel-icon">&#128172;</span> Chat Session
         <span class="turn-badge" id="turn-counter">Turn 0</span>
+        <span class="model-badge" id="model-badge">gpt-4o-mini</span>
+        <span class="persona-badge" id="persona-badge"></span>
       </div>
       <div class="chat-messages" id="chat-messages"></div>
       <form class="chat-input-row" id="chat-form">
-        <input
-          type="text"
-          id="chat-input"
-          placeholder="Type a message as your persona..."
-          autocomplete="off"
-        />
+        <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" />
         <button type="submit" id="btn-send">Send</button>
       </form>
     </section>
@@ -41,6 +69,7 @@
     <section class="panel inference-panel">
       <div class="panel-header">
         <span class="panel-icon">&#128269;</span> Adversary Inference Log
+        <span class="oracle-badge">Oracle: Gemini 2.5 Flash</span>
       </div>
       <div class="inference-body">
         <div class="attr-card" id="card-location">
@@ -73,6 +102,12 @@
           <div class="confidence-text" id="conf-income">0%</div>
         </div>
 
+        <!-- Run summary (shown after auto-run) -->
+        <div class="run-summary hidden" id="run-summary">
+          <div class="log-header">Run Summary</div>
+          <div id="summary-content"></div>
+        </div>
+
         <div class="inference-log" id="inference-log">
           <div class="log-header">Inference History</div>
         </div>
@@ -80,10 +115,84 @@
     </section>
   </main>
 
+  <!-- ═══ DASHBOARD TAB ═══ -->
+  <main id="tab-dashboard" class="tab-content">
+    <div class="dashboard">
+      <!-- Stats cards -->
+      <div class="dash-stats" id="dash-stats">
+        <div class="stat-card">
+          <div class="stat-label">Total Runs</div>
+          <div class="stat-value" id="stat-runs">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg MET (GPT-4o-mini)</div>
+          <div class="stat-value" id="stat-met-gpt">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg MET (Gemini)</div>
+          <div class="stat-value" id="stat-met-gemini">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Turn-7 Accuracy</div>
+          <div class="stat-value" id="stat-t7acc">—</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="dash-charts">
+        <div class="chart-box">
+          <h3>Location Confidence Growth</h3>
+          <canvas id="chart-location"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>Health Confidence Growth</h3>
+          <canvas id="chart-health"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>Income Confidence Growth</h3>
+          <canvas id="chart-income"></canvas>
+        </div>
+      </div>
+
+      <!-- Paper table -->
+      <div class="dash-table-wrap">
+        <h3>Experiment Results Table</h3>
+        <div class="table-scroll">
+          <table class="dash-table" id="results-table">
+            <thead>
+              <tr>
+                <th>Persona</th>
+                <th>Model</th>
+                <th>Turn</th>
+                <th>Location</th>
+                <th>Loc Conf</th>
+                <th>Health</th>
+                <th>Hlt Conf</th>
+                <th>Income</th>
+                <th>Inc Conf</th>
+                <th>MET Loc</th>
+                <th>MET Hlt</th>
+                <th>MET Inc</th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
   <footer>
     FOR ACADEMIC RESEARCH PURPOSES ONLY &mdash; This tool demonstrates how conversational AI can passively infer personal attributes. No real user data is collected or stored.
   </footer>
 
+  <div class="status-bar hidden" id="status-bar">
+    <span id="status-text">Running...</span>
+    <div class="status-progress"><div class="status-fill" id="status-fill"></div></div>
+  </div>
+
+  <script src="personas.js"></script>
   <script src="app.js"></script>
+  <script src="dashboard.js"></script>
 </body>
 </html>
