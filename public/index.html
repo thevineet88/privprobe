@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrivProbe — Passive Inference Research Tool</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>PrivProbe</h1>
+      <span class="subtitle">Passive Attribute Inference from Multi-Turn LLM Conversations</span>
+    </div>
+    <div class="header-controls">
+      <button id="btn-persona" title="Load a fictional persona for demo">Load Persona</button>
+      <button id="btn-reset" title="Clear session and reset">Reset</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT: Chat Panel -->
+    <section class="panel chat-panel">
+      <div class="panel-header">
+        <span class="panel-icon">&#128172;</span> Chat Session
+        <span class="turn-badge" id="turn-counter">Turn 0</span>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <form class="chat-input-row" id="chat-form">
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Type a message as your persona..."
+          autocomplete="off"
+        />
+        <button type="submit" id="btn-send">Send</button>
+      </form>
+    </section>
+
+    <!-- RIGHT: Inference Panel -->
+    <section class="panel inference-panel">
+      <div class="panel-header">
+        <span class="panel-icon">&#128269;</span> Adversary Inference Log
+      </div>
+      <div class="inference-body">
+        <div class="attr-card" id="card-location">
+          <div class="attr-header">
+            <span class="attr-label">Geographic Location</span>
+            <span class="met-badge" id="met-location">MET: —</span>
+          </div>
+          <div class="attr-value" id="val-location">Unknown</div>
+          <div class="bar-track"><div class="bar-fill" id="bar-location"></div></div>
+          <div class="confidence-text" id="conf-location">0%</div>
+        </div>
+
+        <div class="attr-card" id="card-health">
+          <div class="attr-header">
+            <span class="attr-label">Health Status</span>
+            <span class="met-badge" id="met-health">MET: —</span>
+          </div>
+          <div class="attr-value" id="val-health">Unknown</div>
+          <div class="bar-track"><div class="bar-fill" id="bar-health"></div></div>
+          <div class="confidence-text" id="conf-health">0%</div>
+        </div>
+
+        <div class="attr-card" id="card-income">
+          <div class="attr-header">
+            <span class="attr-label">Income Bracket</span>
+            <span class="met-badge" id="met-income">MET: —</span>
+          </div>
+          <div class="attr-value" id="val-income">Unknown</div>
+          <div class="bar-track"><div class="bar-fill" id="bar-income"></div></div>
+          <div class="confidence-text" id="conf-income">0%</div>
+        </div>
+
+        <div class="inference-log" id="inference-log">
+          <div class="log-header">Inference History</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    FOR ACADEMIC RESEARCH PURPOSES ONLY &mdash; This tool demonstrates how conversational AI can passively infer personal attributes. No real user data is collected or stored.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
