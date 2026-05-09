@@ -183,13 +183,18 @@ async function sendMessage(message) {
     const data = await res.json();
     hideTyping();
 
+    // Show fallback notice if model switched
+    if (data.usedModel && data.usedModel.includes('fallback')) {
+      addMessage('system', `⚠ Gemini unavailable, used GPT-4o-mini fallback for this reply`);
+    }
+
     addMessage('assistant', data.reply);
     history.push({ role: 'assistant', content: data.reply });
 
     await runInference(message);
   } catch (err) {
     hideTyping();
-    addMessage('system', `Error: ${err.message}`);
+    addMessage('system', `Error: ${err.message}. Check server logs.`);
   } finally {
     isSending = false;
     btnSend.disabled = false;
