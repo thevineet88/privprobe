@@ -179,14 +179,12 @@ async function sendMessage(message) {
       body: JSON.stringify({ message, history: history.slice(0, -1), model }),
     });
 
-    if (!res.ok) throw new Error('Chat failed');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Chat failed');
+    }
     const data = await res.json();
     hideTyping();
-
-    // Show fallback notice if model switched
-    if (data.usedModel && data.usedModel.includes('fallback')) {
-      addMessage('system', `⚠ Gemini unavailable, used GPT-4o-mini fallback for this reply`);
-    }
 
     addMessage('assistant', data.reply);
     history.push({ role: 'assistant', content: data.reply });

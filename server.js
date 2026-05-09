@@ -132,16 +132,6 @@ async function geminiInfer(transcript) {
   return result.response.text();
 }
 
-async function openaiInfer(transcript) {
-  const completion = await getOpenAI().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: ORACLE_PROMPT(transcript) }],
-    temperature: 0.2,
-    max_tokens: 300,
-  });
-  return completion.choices[0].message.content;
-}
-
 // ── Chat endpoint ───────────────────────────────────────────────────────────
 
 app.post('/api/chat', async (req, res) => {
@@ -150,23 +140,15 @@ app.post('/api/chat', async (req, res) => {
 
   try {
     let reply;
-    let usedModel = target;
 
     if (target === 'gpt-4o-mini') {
       reply = await withRetry(() => openaiChat(message, history), 'chat-gpt');
     } else {
-      // Try Gemini with retries, fallback to GPT-4o-mini
-      try {
-        reply = await withRetry(() => geminiChat(message, history), 'chat-gemini');
-      } catch (geminiErr) {
-        console.warn(`[chat] Gemini failed after retries: ${geminiErr.message}. Falling back to GPT-4o-mini.`);
-        reply = await withRetry(() => openaiChat(message, history), 'chat-gpt-fallback');
-        usedModel = 'gpt-4o-mini (fallback)';
-      }
+      reply = await withRetry(() => geminiChat(message, history), 'chat-gemini');
     }
 
-    console.log(`[chat][${usedModel}] OK, ${reply.length} chars`);
-    res.json({ reply, usedModel });
+    console.log(`[chat][${target}] OK, ${reply.length} chars`);
+    res.json({ reply });
   } catch (err) {
     console.error(`[chat] FINAL ERROR:`, err.message);
     res.status(500).json({ error: err.message });
@@ -183,19 +165,9 @@ app.post('/api/infer', async (req, res) => {
     .join('\n');
 
   try {
-    let raw;
-    let oracleUsed = 'gemini-2.5-flash';
+    const raw = await withRetry(() => geminiInfer(transcript), 'infer-gemini');
 
-    // Try Gemini oracle with retries, fallback to GPT-4o-mini
-    try {
-      raw = await withRetry(() => geminiInfer(transcript), 'infer-gemini');
-    } catch (geminiErr) {
-      console.warn(`[infer] Gemini oracle failed: ${geminiErr.message}. Falling back to GPT-4o-mini.`);
-      raw = await withRetry(() => openaiInfer(transcript), 'infer-gpt-fallback');
-      oracleUsed = 'gpt-4o-mini (fallback)';
-    }
-
-    console.log(`[infer][${oracleUsed}] raw:`, raw);
+    console.log('[infer][gemini-2.5-flash] raw:', raw);
 
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -221,7 +193,7 @@ app.post('/api/infer', async (req, res) => {
         timestamp: new Date().toISOString(),
         persona_id,
         model: model || 'gpt-4o-mini',
-        oracle: oracleUsed,
+        oracle: 'gemini-2.5-flash',
         turn: turn || 0,
         last_message: lastMessage || '',
         inference: parsed,
@@ -232,7 +204,7 @@ app.post('/api/infer', async (req, res) => {
       console.log(`[log] Turn ${turn} for ${persona_id}/${model}`);
     }
 
-    res.json({ ...parsed, _oracle: oracleUsed });
+    res.json(parsed);
   } catch (err) {
     console.error('[infer] FINAL ERROR:', err.message);
     res.status(500).json({ error: err.message });
