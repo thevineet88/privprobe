@@ -517,48 +517,6 @@ main#tab-experiment {
   margin-left: 4px;
 }
 
-/* ── Status bar ──────────────────────────────────────────────────────────── */
-
-.status-bar {
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-card);
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  padding: 8px 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 100;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}
-
-.status-bar.hidden { display: none; }
-
-#status-text {
-  font-size: 11px;
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-
-.status-progress {
-  width: 120px;
-  height: 4px;
-  background: var(--bg-primary);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.status-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--accent);
-  border-radius: 2px;
-  transition: width 0.3s;
-}
-
 /* ── Inferring pulse ─────────────────────────────────────────────────────── */
 
 @keyframes pulse {

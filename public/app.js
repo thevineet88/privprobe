@@ -3,8 +3,7 @@ const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
-const btnRun = document.getElementById('btn-run');
-const btnRunAll = document.getElementById('btn-run-all');
+const btnNextTurn = document.getElementById('btn-next-turn');
 const btnReset = document.getElementById('btn-reset');
 const btnExport = document.getElementById('btn-export');
 const modelSelect = document.getElementById('model-select');
@@ -12,15 +11,12 @@ const personaSelect = document.getElementById('persona-select');
 const turnCounter = document.getElementById('turn-counter');
 const modelBadge = document.getElementById('model-badge');
 const personaBadge = document.getElementById('persona-badge');
-const statusBar = document.getElementById('status-bar');
-const statusText = document.getElementById('status-text');
-const statusFill = document.getElementById('status-fill');
 
 let history = [];
 let turnNum = 0;
+let personaTurnIndex = 0;
 let metData = { location: null, health: null, income: null };
 let isSending = false;
-let isAutoRunning = false;
 
 // ── Tab switching ────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach((tab) => {
@@ -89,61 +85,47 @@ function addLogEntry(turnN, data) {
   const log = document.getElementById('inference-log');
   const entry = document.createElement('div');
   entry.className = 'log-entry';
-
-  const attrs = ['location', 'health', 'income'];
-  const details = attrs
-    .map((a) => {
-      const d = data[a];
-      return `${a}: ${d.value} (${Math.round(d.confidence * 100)}%)`;
-    })
+  const details = ['location', 'health', 'income']
+    .map((a) => `${a}: ${data[a].value} (${Math.round(data[a].confidence * 100)}%)`)
     .join(' | ');
-
   entry.innerHTML = `<span class="log-turn">Turn ${turnN}</span><span class="log-detail">${details}</span>`;
   log.appendChild(entry);
 }
 
-function showStatus(text, progress) {
-  statusBar.classList.remove('hidden');
-  statusText.textContent = text;
-  statusFill.style.width = `${progress}%`;
-}
+function showSummary() {
+  const pid = personaSelect.value;
+  if (!pid || !PERSONAS[pid]) return;
 
-function hideStatus() {
-  statusBar.classList.add('hidden');
-}
-
-function showSummary(persona, model) {
+  const persona = PERSONAS[pid];
   const summary = document.getElementById('run-summary');
   const content = document.getElementById('summary-content');
   summary.classList.remove('hidden');
 
-  const gt = persona.gt;
   const rows = ['location', 'health', 'income']
     .map((attr) => {
       const val = document.getElementById(`val-${attr}`).textContent;
       const conf = document.getElementById(`conf-${attr}`).textContent;
       const met = metData[attr] !== null ? `Turn ${metData[attr]}` : 'Not reached';
-      const crossed = metData[attr] !== null ? '&#10004;' : '&#10008;';
+      const icon = metData[attr] !== null ? '&#10004;' : '&#10008;';
       return `<div class="summary-row">
         <span class="summary-attr">${attr}</span>
-        <span>GT: ${gt[attr]}</span>
+        <span>GT: ${persona.gt[attr]}</span>
         <span>Inferred: ${val}</span>
         <span>Conf: ${conf}</span>
-        <span>MET: ${met} ${crossed}</span>
+        <span>MET: ${met} ${icon}</span>
       </div>`;
     })
     .join('');
 
-  content.innerHTML = `
-    <div class="summary-header">${persona.name} · ${model} · ${turnNum} turns</div>
-    ${rows}
-  `;
+  content.innerHTML = `<div class="summary-header">${persona.name} · ${modelSelect.value} · ${turnNum} turns</div>${rows}`;
 }
 
-// ── Inference ────────────────────────────────────────────────────────────────
-async function runInference(personaId, model, lastMessage) {
+// ── Inference (oracle = Gemini 2.5 Flash always) ─────────────────────────────
+async function runInference(lastMessage) {
   const inferencePanel = document.querySelector('.inference-panel');
   inferencePanel.classList.add('inferring');
+
+  const pid = personaSelect.value || null;
 
   try {
     const res = await fetch('/api/infer', {
@@ -151,8 +133,8 @@ async function runInference(personaId, model, lastMessage) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         history,
-        persona_id: personaId || null,
-        model: model || modelSelect.value,
+        persona_id: pid,
+        model: modelSelect.value,
         turn: turnNum,
         lastMessage: lastMessage || '',
       }),
@@ -162,11 +144,12 @@ async function runInference(personaId, model, lastMessage) {
     const data = await res.json();
 
     for (const attr of ['location', 'health', 'income']) {
-      if (data[attr]) {
-        updateAttribute(attr, data[attr].value, data[attr].confidence);
-      }
+      if (data[attr]) updateAttribute(attr, data[attr].value, data[attr].confidence);
     }
     addLogEntry(turnNum, data);
+
+    // Show summary after turn 10 if persona selected
+    if (pid && turnNum >= 10) showSummary();
   } catch (err) {
     console.error('Inference error:', err);
   } finally {
@@ -175,7 +158,7 @@ async function runInference(personaId, model, lastMessage) {
 }
 
 // ── Send message ─────────────────────────────────────────────────────────────
-async function sendMessage(message, personaId) {
+async function sendMessage(message) {
   if (isSending || !message.trim()) return;
   isSending = true;
   btnSend.disabled = true;
@@ -187,7 +170,6 @@ async function sendMessage(message, personaId) {
 
   addMessage('user', message);
   history.push({ role: 'user', content: message });
-
   showTyping();
 
   try {
@@ -204,11 +186,10 @@ async function sendMessage(message, personaId) {
     addMessage('assistant', data.reply);
     history.push({ role: 'assistant', content: data.reply });
 
-    await runInference(personaId, model, message);
+    await runInference(message);
   } catch (err) {
     hideTyping();
     addMessage('system', `Error: ${err.message}`);
-    console.error(err);
   } finally {
     isSending = false;
     btnSend.disabled = false;
@@ -216,73 +197,11 @@ async function sendMessage(message, personaId) {
   }
 }
 
-// ── Persona auto-runner ──────────────────────────────────────────────────────
-function delay(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-async function runPersona(personaId, model) {
-  const persona = PERSONAS[personaId];
-  if (!persona) return;
-
-  resetSession();
-  modelSelect.value = model;
-  modelBadge.textContent = model;
-  personaBadge.textContent = `${persona.name} (${persona.gt.location})`;
-
-  isAutoRunning = true;
-  chatInput.disabled = true;
-  btnSend.disabled = true;
-  btnRun.disabled = true;
-  modelSelect.disabled = true;
-  personaSelect.disabled = true;
-
-  for (let i = 0; i < persona.turns.length; i++) {
-    if (!isAutoRunning) break;
-    showStatus(
-      `${persona.name} · ${model} · Turn ${i + 1}/${persona.turns.length}`,
-      ((i + 1) / persona.turns.length) * 100,
-    );
-    await sendMessage(persona.turns[i], personaId);
-    if (i < persona.turns.length - 1) await delay(1500);
-  }
-
-  showSummary(persona, model);
-  hideStatus();
-
-  isAutoRunning = false;
-  chatInput.disabled = false;
-  btnSend.disabled = false;
-  btnRun.disabled = false;
-  modelSelect.disabled = false;
-  personaSelect.disabled = false;
-}
-
-async function runAllPersonas() {
-  const models = ['gpt-4o-mini', 'gemini-2.5-flash'];
-  const personaIds = Object.keys(PERSONAS);
-
-  btnRunAll.disabled = true;
-  btnRun.disabled = true;
-
-  for (const model of models) {
-    for (const pid of personaIds) {
-      showStatus(`Running ${pid} on ${model}...`, 0);
-      await runPersona(pid, model);
-      await delay(2000);
-    }
-  }
-
-  btnRunAll.disabled = false;
-  btnRun.disabled = false;
-  hideStatus();
-  addMessage('system', 'All persona runs complete! Switch to Dashboard tab to see results.');
-}
-
 // ── Reset ────────────────────────────────────────────────────────────────────
 function resetSession() {
   history = [];
   turnNum = 0;
+  personaTurnIndex = 0;
   metData = { location: null, health: null, income: null };
   turnCounter.textContent = 'Turn 0';
   personaBadge.textContent = '';
@@ -291,14 +210,12 @@ function resetSession() {
 
   for (const attr of ['location', 'health', 'income']) {
     updateAttribute(attr, 'Unknown', 0);
-    const metEl = document.getElementById(`met-${attr}`);
-    metEl.textContent = 'MET: —';
-    metEl.classList.remove('active');
+    document.getElementById(`met-${attr}`).textContent = 'MET: —';
+    document.getElementById(`met-${attr}`).classList.remove('active');
     document.getElementById(`card-${attr}`).className = 'attr-card';
   }
 
-  const log = document.getElementById('inference-log');
-  log.innerHTML = '<div class="log-header">Inference History</div>';
+  document.getElementById('inference-log').innerHTML = '<div class="log-header">Inference History</div>';
   document.getElementById('run-summary').classList.add('hidden');
 }
 
@@ -306,29 +223,39 @@ function resetSession() {
 chatForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const msg = chatInput.value.trim();
-  if (msg && !isAutoRunning) {
+  if (msg) {
     chatInput.value = '';
     sendMessage(msg);
   }
 });
 
-btnRun.addEventListener('click', () => {
+btnNextTurn.addEventListener('click', () => {
   const pid = personaSelect.value;
-  if (!pid) {
-    addMessage('system', 'Select a persona from the dropdown first.');
+  if (!pid || !PERSONAS[pid]) {
+    addMessage('system', 'Select a persona first.');
     return;
   }
-  runPersona(pid, modelSelect.value);
+  const persona = PERSONAS[pid];
+  if (personaTurnIndex >= persona.turns.length) {
+    addMessage('system', `All ${persona.turns.length} turns done for ${persona.name}. Reset to start over.`);
+    return;
+  }
+  chatInput.value = persona.turns[personaTurnIndex];
+  personaTurnIndex++;
+  chatInput.focus();
 });
 
-btnRunAll.addEventListener('click', () => {
-  if (confirm('This will run all 5 personas on both models (100 API calls). Continue?')) {
-    runAllPersonas();
+personaSelect.addEventListener('change', () => {
+  const pid = personaSelect.value;
+  personaTurnIndex = 0;
+  if (pid && PERSONAS[pid]) {
+    personaBadge.textContent = `${PERSONAS[pid].name} (${PERSONAS[pid].gt.location})`;
+  } else {
+    personaBadge.textContent = '';
   }
 });
 
 btnReset.addEventListener('click', () => {
-  isAutoRunning = false;
   resetSession();
   addMessage('system', 'Session reset. Select a persona or start typing.');
 });
@@ -341,4 +268,4 @@ modelSelect.addEventListener('change', () => {
   modelBadge.textContent = modelSelect.value;
 });
 
-addMessage('system', 'Welcome to PrivProbe. Select a persona and click Run, or chat manually.');
+addMessage('system', 'Welcome to PrivProbe. Select a persona, click "Next Turn" to load each message, then Send.');

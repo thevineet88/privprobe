@@ -25,7 +25,6 @@
   <main id="tab-experiment" class="tab-content active">
     <!-- LEFT: Controls + Chat -->
     <section class="panel chat-panel">
-      <!-- Control bar -->
       <div class="control-bar">
         <div class="control-group">
           <label>Model</label>
@@ -45,13 +44,11 @@
             <option value="amit">Amit · Delhi · Cholesterol · Govt</option>
           </select>
         </div>
-        <button id="btn-run" title="Auto-run selected persona">&#9654; Run Persona</button>
-        <button id="btn-run-all" title="Run all personas on both models">&#9654;&#9654; Run All</button>
+        <button id="btn-next-turn" title="Load next turn for selected persona">Next Turn</button>
         <button id="btn-reset">Reset</button>
         <button id="btn-export">Export CSV</button>
       </div>
 
-      <!-- Chat area -->
       <div class="panel-header">
         <span class="panel-icon">&#128172;</span> Chat Session
         <span class="turn-badge" id="turn-counter">Turn 0</span>
@@ -102,7 +99,6 @@
           <div class="confidence-text" id="conf-income">0%</div>
         </div>
 
-        <!-- Run summary (shown after auto-run) -->
         <div class="run-summary hidden" id="run-summary">
           <div class="log-header">Run Summary</div>
           <div id="summary-content"></div>
@@ -118,10 +114,9 @@
   <!-- ═══ DASHBOARD TAB ═══ -->
   <main id="tab-dashboard" class="tab-content">
     <div class="dashboard">
-      <!-- Stats cards -->
       <div class="dash-stats" id="dash-stats">
         <div class="stat-card">
-          <div class="stat-label">Total Runs</div>
+          <div class="stat-label">Total Logged Turns</div>
           <div class="stat-value" id="stat-runs">0</div>
         </div>
         <div class="stat-card">
@@ -138,7 +133,6 @@
         </div>
       </div>
 
-      <!-- Charts -->
       <div class="dash-charts">
         <div class="chart-box">
           <h3>Location Confidence Growth</h3>
@@ -154,25 +148,17 @@
         </div>
       </div>
 
-      <!-- Paper table -->
       <div class="dash-table-wrap">
         <h3>Experiment Results Table</h3>
         <div class="table-scroll">
           <table class="dash-table" id="results-table">
             <thead>
               <tr>
-                <th>Persona</th>
-                <th>Model</th>
-                <th>Turn</th>
-                <th>Location</th>
-                <th>Loc Conf</th>
-                <th>Health</th>
-                <th>Hlt Conf</th>
-                <th>Income</th>
-                <th>Inc Conf</th>
-                <th>MET Loc</th>
-                <th>MET Hlt</th>
-                <th>MET Inc</th>
+                <th>Persona</th><th>Model</th><th>Turn</th>
+                <th>Location</th><th>Loc Conf</th>
+                <th>Health</th><th>Hlt Conf</th>
+                <th>Income</th><th>Inc Conf</th>
+                <th>MET Loc</th><th>MET Hlt</th><th>MET Inc</th>
               </tr>
             </thead>
             <tbody id="results-tbody"></tbody>
@@ -185,11 +171,6 @@
   <footer>
     FOR ACADEMIC RESEARCH PURPOSES ONLY &mdash; This tool demonstrates how conversational AI can passively infer personal attributes. No real user data is collected or stored.
   </footer>
-
-  <div class="status-bar hidden" id="status-bar">
-    <span id="status-text">Running...</span>
-    <div class="status-progress"><div class="status-fill" id="status-fill"></div></div>
-  </div>
 
   <script src="personas.js"></script>
   <script src="app.js"></script>
